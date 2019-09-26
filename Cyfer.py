@@ -188,6 +188,7 @@ class MyWindow(wx.Frame):
         self.buttonCriptografar.Enable()
         self.buttonCriptografar.SetLabelText('Criptografar')
         self.buttonDecriptografar.Enable()
+        self.buttonDecriptografar.SetLabelText('Decriptografar')
         self.comboBoxFormulaHashOuCripto.SetSelection(0)
 
     def set_up_for_Hash(self):
