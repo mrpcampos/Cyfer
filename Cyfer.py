@@ -301,8 +301,11 @@ class MyWindow(wx.Frame):
                     decriptor = Cipher(algoritmo(chave, iv), modo, backend=default_backend()).decryptor()
                 mensagemDecriptada = decriptor.update(msgEnc) + decriptor.finalize()
                 if block_size is not None:
-                    unpadder = pad.PKCS7(algoritmo.block_size).unpadder()
-                    mensagemDecriptada = unpadder.update(mensagemDecriptada) + unpadder.finalize()
+                    try:
+                        unpadder = pad.PKCS7(block_size).unpadder()
+                        mensagemDecriptada = unpadder.update(mensagemDecriptada) + unpadder.finalize()
+                    except:
+                        pass
                 self._txtSaidaDados.Clear()
                 self._txtSaidaDados.WriteText(mensagemDecriptada.decode())
             except ValueError as error:
@@ -379,7 +382,7 @@ class MyWindow(wx.Frame):
                 salt = os.urandom(32)
                 senha = senha.encode()
                 dados_para_salvar = dados_para_salvar.encode()
-                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=100000,
+                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=1000000,
                                    backend=default_backend()).derive(senha)
                 nounce = os.urandom(16)
                 aesgcm = aead.AESGCM(chave)
@@ -406,7 +409,7 @@ class MyWindow(wx.Frame):
                                                  caption='Carregar configurações de Criptografia')
                 dialogSenha.ShowModal()
                 senha = dialogSenha.GetValue().encode()
-                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=100000, backend=default_backend()).derive(senha)
+                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=1000000, backend=default_backend()).derive(senha)
                 dados_decriptografados = aead.AESGCM(chave).decrypt(nounce, dados, None)
                 dados_separados = dados_decriptografados.decode().split(':')
                 if dados_separados[0] == 'Criptografia':
