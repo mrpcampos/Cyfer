@@ -11,8 +11,7 @@ class MyWindow(wx.Frame):
 
     __tiposAlteracoes = ('Criptografia', 'Hash')
     _Hash_para_escolher = ('MD5', 'SHA1', 'SHA256', 'SHA512', 'SHA3_256', 'SHA3_512', 'SHA512_256')
-    _Criptografia_para_escolher = (
-        'AES_CTR', 'AES_CBC', 'AES_OFB', 'AES_CFB', 'AES_XTS', 'ChaCha20')
+    _Criptografia_para_escolher = ('AES_CTR', 'AES_CBC', 'AES_OFB', 'AES_CFB', 'AES_XTS', 'ChaCha20')
     __tipoAlteracaoEscolhida = ''
     __formulaHashOuCriptoEscolhida = ''
 
@@ -139,7 +138,7 @@ class MyWindow(wx.Frame):
         if tipoCriptografia in listaFormulas:
             self.__formulaHashOuCriptoEscolhida = tipoCriptografia
         else:
-            self.criptografia_nao_suportada("Tipo de criptografia não suportado")
+            self.error_dialog("Tipo de criptografia não suportado")
 
     def eventoGerarChaveBtn(self, event):
         if self.__tipoAlteracaoEscolhida == 'Criptografia':
@@ -160,8 +159,7 @@ class MyWindow(wx.Frame):
             elif self.__tipoAlteracaoEscolhida == 'Hash':
                 self.gerarHash(msg)
         else:
-            wx.MessageDialog(self, message="Selecione que tipo de alteração deseja fazer, Criptografia ou Hash.",
-                             style=wx.ICON_ERROR, caption='Erro').ShowModal()
+            self.error_dialog("Selecione que tipo de alteração deseja fazer, Criptografia ou Hash.")
 
     def eventoDecriptografarBtn(self, event):
         """Falta verificar se todos os campos estão preenchidos corretamente"""
@@ -205,15 +203,18 @@ class MyWindow(wx.Frame):
         if block_size is not None:
             padder = pad.PKCS7(block_size).padder()
             msg = padder.update(msg) + padder.finalize()
-        if modo is not None:
-            encriptor = Cipher(algoritmo(chave), modo, backend=default_backend()).encryptor()
-        else:
-            encriptor = Cipher(algoritmo(chave, iv), modo, backend=default_backend()).encryptor()
-        mensagemEncriptada = encriptor.update(msg) + encriptor.finalize()
-        self._txtSaidaDados.Clear()
-        self._txtSaidaDados.WriteText(mensagemEncriptada.hex())
+        try:
+            if modo is not None:
+                encriptor = Cipher(algoritmo(chave), modo, backend=default_backend()).encryptor()
+            else:
+                encriptor = Cipher(algoritmo(chave, iv), modo, backend=default_backend()).encryptor()
+            mensagemEncriptada = encriptor.update(msg) + encriptor.finalize()
+            self._txtSaidaDados.Clear()
+            self._txtSaidaDados.WriteText(mensagemEncriptada.hex())
+        except ValueError as error:
+            self.error_dialog(error.args[0])
 
-    def criptografia_nao_suportada(self, msg):
+    def error_dialog(self, msg):
         wx.MessageDialog(self, message=msg, style=wx.ICON_ERROR).ShowModal()
 
     def gerarHash(self, msg):
@@ -225,8 +226,7 @@ class MyWindow(wx.Frame):
             self._txtSaidaDados.Clear()
             self._txtSaidaDados.WriteText(hashedMsg.hex())
         else:
-            wx.MessageDialog(self, message="Formula hash escolhida não suportada.",
-                             style=wx.ICON_ERROR, caption='Erro').ShowModal()
+            self.error_dialog("Formula hash escolhida não suportada.")
 
     def decriptografar(self):
         if self.__formulaHashOuCriptoEscolhida in self._Criptografia_para_escolher:
@@ -253,7 +253,7 @@ class MyWindow(wx.Frame):
                 self._txtSaidaDados.Clear()
                 self._txtSaidaDados.WriteText(mensagemDecriptada.decode())
             except ValueError as error:
-                wx.MessageDialog(self, message=error.args[0], style=wx.ICON_ERROR, caption='Erro').ShowModal()
+                self.error_dialog(error.args[0])
 
 
 class Cifrador(wx.App):
