@@ -5,7 +5,7 @@ import cryptography.hazmat.primitives.padding as pad
 import cryptography.hazmat.primitives.hashes as hashes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hmac
-from cryptography.hazmat.primitives.ciphers import modes, algorithms, Cipher
+from cryptography.hazmat.primitives.ciphers import modes, algorithms, Cipher, aead
 
 
 class MyWindow(wx.Frame):
@@ -13,7 +13,7 @@ class MyWindow(wx.Frame):
 
     __tiposAlteracoes = ('Criptografia', 'Hash', 'Hmac')
     _Hash_para_escolher = ('MD5', 'SHA1', 'SHA256', 'SHA512', 'SHA3_256', 'SHA3_512', 'SHA512_256')
-    _Criptografia_para_escolher = ('AES_CTR', 'AES_CBC', 'AES_OFB', 'AES_CFB', 'AES_XTS', 'ChaCha20')
+    _Criptografia_para_escolher = ('AES_CTR', 'AES_CBC', 'AES_GCM', 'AES_OFB', 'AES_CFB', 'AES_XTS', 'ChaCha20')
     _Hmac_para_escolher = ('HMAC-MD5', 'HMAC-SHA1', 'HMAC-SHA256', 'HMAC-SHA512', 'HMAC-SHA3_256', 'HMAC-SHA3_512')
     __tipoAlteracaoEscolhida = ''
     __formulaHashOuCriptoEscolhida = ''
@@ -248,6 +248,11 @@ class MyWindow(wx.Frame):
             else:
                 encriptor = Cipher(algoritmo(chave, iv), modo, backend=default_backend()).encryptor()
             mensagemEncriptada = encriptor.update(msg) + encriptor.finalize()
+            if modo is not None and cripto[1] == 'GCM':
+                print('Msg Enc: ' + mensagemEncriptada.hex())
+                print('Tag: ' + encriptor.tag.hex())
+                mensagemEncriptada += encriptor.tag
+                print('Msg Enc com tag: ' + mensagemEncriptada.hex())
             self._txtSaidaDados.Clear()
             self._txtSaidaDados.WriteText(mensagemEncriptada.hex())
         except ValueError as error:
@@ -264,7 +269,15 @@ class MyWindow(wx.Frame):
                 iv = bytes.fromhex(self._txtIV.GetValue())
                 if len(cripto) > 1:
                     modo = getattr(modes, cripto[1], None)
-                    modo = None if modo is None else modo(iv)
+                    if cripto[1] == 'GCM':
+                        print("Msg EnC com tag: " + msgEnc.hex())
+                        tag = msgEnc[-16:]
+                        print('Tag: ' + tag.hex())
+                        msgEnc = msgEnc[0:-16]
+                        print('Msg Enc: ' + msgEnc.hex())
+                        modo = None if modo is None else modo(iv, tag)
+                    else:
+                        modo = None if modo is None else modo(iv)
                 else:
                     modo = None
                 if modo is not None:
