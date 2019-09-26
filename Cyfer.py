@@ -360,8 +360,10 @@ class MyWindow(wx.Frame):
             if self.__tipoAlteracaoEscolhida == 'Criptografia':
                 dados_para_salvar += ":" + self._txtChave.GetValue()
                 dados_para_salvar += ":" + self._txtIV.GetValue()
+                dados_para_salvar += ":" + self._txtEntradaDados.GetValue()
             elif self.__tipoAlteracaoEscolhida == 'Hmac':
                 dados_para_salvar += ":" + self._txtChave.GetValue()
+                dados_para_salvar += ":" + self._txtEntradaDados.GetValue()
 
             dialogNome = wx.TextEntryDialog(self, 'Escolha um nome para o arquivo:',
                                             caption='Salvar Configurações de Criptografia')
@@ -416,6 +418,8 @@ class MyWindow(wx.Frame):
                     self._txtChave.WriteText(dados_separados[2])
                     self._txtIV.Clear()
                     self._txtIV.WriteText(dados_separados[3])
+                    self._txtEntradaDados.Clear()
+                    self._txtEntradaDados.WriteText(dados_separados[4])
                 elif dados_separados[0] == 'Hmac':
                     self.comboBoxTipoAlteracao.SetSelection(2)
                     self.eventoComboBoxTipoAlteracao(None)
@@ -423,6 +427,8 @@ class MyWindow(wx.Frame):
                     self.eventoComboBoxFormulaHashOuCripto(None)
                     self._txtChave.Clear()
                     self._txtChave.WriteText(dados_separados[2])
+                    self._txtEntradaDados.Clear()
+                    self._txtEntradaDados.WriteText(dados_separados[3])
             except KeyError:
                 self.error_dialog('Não há nenhum arquivo com esse nome que possua configurações para esse programa.')
 
