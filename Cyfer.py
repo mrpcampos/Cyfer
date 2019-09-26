@@ -1,17 +1,18 @@
 import wx
 import os
 import cryptography.hazmat.primitives.padding as pad
-import cryptography.hazmat.primitives as hashes
+import cryptography.hazmat.primitives.hashes as hashes
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import modes, algorithms, aead, Cipher
+from cryptography.hazmat.primitives.ciphers import modes, algorithms, Cipher
 
 
 class MyWindow(wx.Frame):
     """"Janela contendo tudo"""
 
     __tiposAlteracoes = ('Criptografia', 'Hash')
-    _Hash_para_escolher = ('MAC', 'SHA256')
-    _Criptografia_para_escolher = ('AES_GCM', 'AES_CTR', 'AES_CBC', 'HMAC')
+    _Hash_para_escolher = ('MD5', 'SHA1', 'SHA256', 'SHA512', 'SHA3_256', 'SHA3_512', 'SHA512_256')
+    _Criptografia_para_escolher = (
+        'AES_CTR', 'AES_CBC', 'AES_OFB', 'AES_CFB', 'AES_XTS', 'ChaCha20')
     __tipoAlteracaoEscolhida = ''
     __formulaHashOuCriptoEscolhida = ''
 
@@ -34,7 +35,7 @@ class MyWindow(wx.Frame):
 
         # Tipo de Criptografia
         self.tipoCriptografiaSizer.AddSpacer(20)
-        titleLabel = wx.StaticText(self, label="Criptografia:", style=wx.BOLD)
+        titleLabel = wx.StaticText(self, label="Cyfer", style=wx.BOLD)
         font = titleLabel.GetFont()
         font.PointSize += 10
         font = font.Bold()
@@ -54,28 +55,32 @@ class MyWindow(wx.Frame):
         self.tipoCriptografiaSizer.AddSpacer(20)
 
         # Chave e Iv
-        self.key_Iv_Sizer.AddSpacer(60)
+        self.key_Iv_Sizer.AddSpacer(20)
+        self.key_Iv_Sizer.AddStretchSpacer()
         self.buttonGerarChaveEIV = wx.Button(self, label="Gerar Chave e IV")
         self.key_Iv_Sizer.Add(self.buttonGerarChaveEIV, 0, wx.ALIGN_CENTER_VERTICAL)
+        self.key_Iv_Sizer.AddSpacer(5)
+        self.radio_btn_key_size = wx.RadioBox(self, choices=['128', '256'], majorDimension=1)
+        self.key_Iv_Sizer.Add(self.radio_btn_key_size, 0, wx.ALIGN_CENTER_VERTICAL)
         self.key_Iv_Sizer.AddStretchSpacer()
         self.labelChave = wx.StaticText(self, label="Chave:", style=wx.BOLD)
         self.key_Iv_Sizer.Add(self.labelChave, 0, wx.ALIGN_CENTER_VERTICAL)
-        self.key_Iv_Sizer.AddSpacer(10)
-        self.txtChave = wx.TextCtrl(self, size=(320, -1), name="Chave", style=wx.LC_SINGLE_SEL)
-        self.key_Iv_Sizer.Add(self.txtChave, 0, wx.ALIGN_CENTER_VERTICAL)
+        self.key_Iv_Sizer.AddSpacer(5)
+        self._txtChave = wx.TextCtrl(self, size=(320, -1), name="Chave", style=wx.LC_SINGLE_SEL)
+        self.key_Iv_Sizer.Add(self._txtChave, 0, wx.ALIGN_CENTER_VERTICAL)
         self.key_Iv_Sizer.AddStretchSpacer()
         self.labelIV = wx.StaticText(self, label="IV/NOUNCE:", style=wx.BOLD)
         self.key_Iv_Sizer.Add(self.labelIV, 0, wx.ALIGN_CENTER_VERTICAL)
-        self.key_Iv_Sizer.AddSpacer(10)
-        self.txtIV = wx.TextCtrl(self, size=(320, -1), name="IV", style=wx.LC_SINGLE_SEL)
-        self.key_Iv_Sizer.Add(self.txtIV, 0, wx.ALIGN_CENTER_VERTICAL)
+        self.key_Iv_Sizer.AddSpacer(5)
+        self._txtIV = wx.TextCtrl(self, size=(320, -1), name="IV", style=wx.LC_SINGLE_SEL)
+        self.key_Iv_Sizer.Add(self._txtIV, 0, wx.ALIGN_CENTER_VERTICAL)
         self.key_Iv_Sizer.AddStretchSpacer()
         self.key_Iv_Sizer.AddSpacer(20)
 
         # Encriptar e Decriptar
         self.sizerMensagens.AddSpacer(20)
-        self.txtEntradaDados = wx.TextCtrl(self, size=(400, -1), name="Mensagem", style=wx.TE_MULTILINE)
-        self.sizerMensagens.Add(self.txtEntradaDados, 1, wx.EXPAND)
+        self._txtEntradaDados = wx.TextCtrl(self, size=(400, -1), name="Mensagem", style=wx.TE_MULTILINE)
+        self.sizerMensagens.Add(self._txtEntradaDados, 1, wx.EXPAND)
         self.sizerMensagens.AddStretchSpacer(1)
         self.btnsCriptoEDecriptoSizer = wx.BoxSizer(wx.VERTICAL)
         self.btnsCriptoEDecriptoSizer.AddStretchSpacer(3)
@@ -87,11 +92,11 @@ class MyWindow(wx.Frame):
         self.btnsCriptoEDecriptoSizer.AddStretchSpacer(3)
         self.sizerMensagens.Add(self.btnsCriptoEDecriptoSizer, 0, wx.ALIGN_CENTER)
         self.sizerMensagens.AddStretchSpacer(1)
-        self.txtSaidaDados = wx.TextCtrl(self, size=(400, -1), name="MensagemCriptografada", style=wx.TE_MULTILINE)
-        self.txtSaidaDados.SetCanFocus(False)
-        self.txtSaidaDados.SetEditable(False)
-        self.txtSaidaDados.SetBackgroundColour((150, 150, 150))
-        self.sizerMensagens.Add(self.txtSaidaDados, 0, wx.EXPAND)
+        self._txtSaidaDados = wx.TextCtrl(self, size=(400, -1), name="MensagemCriptografada", style=wx.TE_MULTILINE)
+        self._txtSaidaDados.SetCanFocus(False)
+        self._txtSaidaDados.SetEditable(False)
+        self._txtSaidaDados.SetBackgroundColour((150, 150, 150))
+        self.sizerMensagens.Add(self._txtSaidaDados, 0, wx.EXPAND)
         self.sizerMensagens.AddSpacer(20)
 
         # Colocando as funções nos Botões
@@ -103,6 +108,7 @@ class MyWindow(wx.Frame):
 
         # Define a escolha padrão da combo box e da trigger no evento
         self.comboBoxTipoAlteracao.SetSelection(0)
+        self.__tipoAlteracaoEscolhida = self.__tiposAlteracoes[0]
         self.comboBoxFormulaHashOuCripto.SetSelection(2)
         self.eventoComboBoxFormulaHashOuCripto(None)
 
@@ -112,146 +118,142 @@ class MyWindow(wx.Frame):
             self.__tipoAlteracaoEscolhida = tipoAlteracaoEscolhida
             nome_alteracao = '_' + str(tipoAlteracaoEscolhida) + '_para_escolher'
             listaFormulas = getattr(self, nome_alteracao)
-            tempComboBoxFormulaHashOuCripto = wx.ComboBox(self, choices=listaFormulas, size=(200, -1), style=wx.CB_DROPDOWN)
+            tempComboBoxFormulaHashOuCripto = wx.ComboBox(self, choices=listaFormulas, size=(200, -1),
+                                                          style=wx.CB_DROPDOWN)
             self.tipoCriptografiaSizer.Replace(self.comboBoxFormulaHashOuCripto, tempComboBoxFormulaHashOuCripto)
             self.tipoCriptografiaSizer.Layout()
             self.comboBoxFormulaHashOuCripto.Destroy()
             self.comboBoxFormulaHashOuCripto = tempComboBoxFormulaHashOuCripto
             self.Bind(wx.EVT_COMBOBOX, self.eventoComboBoxFormulaHashOuCripto, self.comboBoxFormulaHashOuCripto)
 
-    def eventoComboBoxFormulaHashOuCripto(self, event):
-        tipoCriptografia = self.comboBoxFormulaHashOuCripto.GetValue()
-        if tipoCriptografia in self._Criptografia_para_escolher:
-            self.__formulaHashOuCriptoEscolhida = tipoCriptografia
-            nome_metodo = 'set_up_for_' + str(tipoCriptografia)
+            # Deixa editável somente os campos a serem utilizados
+            nome_metodo = 'set_up_for_' + str(tipoAlteracaoEscolhida)
             method = getattr(self, nome_metodo)
-            return method()
+            method()
+
+    def eventoComboBoxFormulaHashOuCripto(self, event):
+        """Precisa ser alterado para arrumar a função de geração de chave"""
+        tipoCriptografia = self.comboBoxFormulaHashOuCripto.GetValue()
+        nome_alteracao = '_' + str(self.__tipoAlteracaoEscolhida) + '_para_escolher'
+        listaFormulas = getattr(self, nome_alteracao)
+        if tipoCriptografia in listaFormulas:
+            self.__formulaHashOuCriptoEscolhida = tipoCriptografia
         else:
             self.criptografia_nao_suportada("Tipo de criptografia não suportado")
 
     def eventoGerarChaveBtn(self, event):
-        try:
-            tipoCriptografia = self.__formulaHashOuCriptoEscolhida
-            if tipoCriptografia in self._Criptografia_para_escolher:
-                nome_metodo = 'generate_key_for_' + str(tipoCriptografia)
-                method = getattr(self, nome_metodo, self.criptografia_nao_suportada)
-                return method()
-        except ValueError as error:
-            wx.MessageDialog(self, message=error.args[0], style=wx.ICON_ERROR, caption='Erro').ShowModal()
+        if self.__tipoAlteracaoEscolhida == 'Criptografia':
+            if self.__formulaHashOuCriptoEscolhida in self._Criptografia_para_escolher:
+                key_size = int((self.radio_btn_key_size.GetItemLabel(self.radio_btn_key_size.GetSelection()))) // 8
+                self._txtChave.Clear()
+                self._txtChave.WriteText(os.urandom(key_size).hex())
+                self._txtIV.Clear()
+                self._txtIV.WriteText(os.urandom(16).hex())
 
     def eventoCriptografarBtn(self, event):
         """Falta verificar se todos os campos estão preenchidos corretamente"""
-        chave = bytes.fromhex(self.txtChave.GetValue())
-        iv = bytes.fromhex(self.txtIV.GetValue())
-        msg = self.txtEntradaDados.GetValue().encode()
-        try:
-            tipoCriptografia = self.__formulaHashOuCriptoEscolhida
-            if tipoCriptografia in self._Criptografia_para_escolher:
-                nome_metodo = 'encrypt_in_' + str(tipoCriptografia)
-                method = getattr(self, nome_metodo, self.criptografia_nao_suportada)
-                return method(chave, iv, msg)
-        except ValueError as error:
-            wx.MessageDialog(self, message=error.args[0], style=wx.ICON_ERROR, caption='Erro').ShowModal()
+        msg = self._txtEntradaDados.GetValue().encode()
+
+        if self.__tipoAlteracaoEscolhida in self.__tiposAlteracoes:
+            if self.__tipoAlteracaoEscolhida == 'Criptografia':
+                self.criptografar(msg)
+            elif self.__tipoAlteracaoEscolhida == 'Hash':
+                self.gerarHash(msg)
+        else:
+            wx.MessageDialog(self, message="Selecione que tipo de alteração deseja fazer, Criptografia ou Hash.",
+                             style=wx.ICON_ERROR, caption='Erro').ShowModal()
 
     def eventoDecriptografarBtn(self, event):
         """Falta verificar se todos os campos estão preenchidos corretamente"""
-        chave = bytes.fromhex(self.txtChave.GetValue())
-        iv = bytes.fromhex(self.txtIV.GetValue())
-        try:
-            msgEnc = bytes.fromhex(self.txtEntradaDados.GetValue())
-            tipoCriptografia = self.__formulaHashOuCriptoEscolhida
-            if tipoCriptografia in self._Criptografia_para_escolher:
-                nome_metodo = 'decrypt_by_' + str(tipoCriptografia)
-                method = getattr(self, nome_metodo, self.criptografia_nao_suportada)
-                return method(chave, iv, msgEnc)
-        except ValueError as error:
-            wx.MessageDialog(self, message=error.args[0], style=wx.ICON_ERROR, caption='Erro').ShowModal()
+        if self.__tipoAlteracaoEscolhida in self.__tiposAlteracoes:
+            if self.__tipoAlteracaoEscolhida == 'Criptografia':
+                self.decriptografar()
 
-    def set_up_for_AES_CTR(self):
-        self.txtChave.SetEditable(True)
-        self.txtChave.SetBackgroundColour((255, 255, 255))
-        self.txtIV.SetEditable(True)
-        self.txtIV.SetBackgroundColour((255, 255, 255))
+    def set_up_for_Criptografia(self):
+        self._txtChave.SetEditable(True)
+        self._txtChave.SetBackgroundColour((255, 255, 255))
+        self._txtIV.SetEditable(True)
+        self._txtIV.SetBackgroundColour((255, 255, 255))
         self.buttonGerarChaveEIV.Enable()
         self.buttonCriptografar.Enable()
+        self.buttonCriptografar.SetLabelText('Criptografar')
         self.buttonDecriptografar.Enable()
+        self.comboBoxFormulaHashOuCripto.SetSelection(0)
 
-    def generate_key_for_AES_CTR(self):
-        self.txtChave.Clear()
-        self.txtChave.WriteText(os.urandom(32).hex())
-        self.txtIV.Clear()
-        self.txtIV.WriteText(os.urandom(16).hex())
+    def set_up_for_Hash(self):
+        self._txtChave.SetEditable(False)
+        self._txtChave.SetBackgroundColour((150, 150, 150))
+        self._txtIV.SetEditable(False)
+        self._txtIV.SetBackgroundColour((150, 150, 150))
+        self.buttonGerarChaveEIV.Disable()
+        self.buttonCriptografar.Enable()
+        self.buttonCriptografar.SetLabelText('Gerar Hash')
+        self.buttonDecriptografar.Disable()
+        self.comboBoxFormulaHashOuCripto.SetSelection(0)
 
-    def encrypt_in_AES_CTR(self, chave, iv, msg):
-        encriptor = Cipher(algorithms.AES(chave), modes.CTR(iv), backend=default_backend()).encryptor()
+    def criptografar(self, msg):
+        chave = bytes.fromhex(self._txtChave.GetValue())
+        iv = bytes.fromhex(self._txtIV.GetValue())
+        cripto = self.__formulaHashOuCriptoEscolhida.split('_')
+        algoritmo = getattr(algorithms, cripto[0])
+        block_size = getattr(algoritmo, 'block_size', None)
+        if len(cripto) > 1:
+            modo = getattr(modes, cripto[1], None)
+            modo = None if modo is None else modo(iv)
+        else:
+            modo = None
+        if block_size is not None:
+            padder = pad.PKCS7(block_size).padder()
+            msg = padder.update(msg) + padder.finalize()
+        if modo is not None:
+            encriptor = Cipher(algoritmo(chave), modo, backend=default_backend()).encryptor()
+        else:
+            encriptor = Cipher(algoritmo(chave, iv), modo, backend=default_backend()).encryptor()
         mensagemEncriptada = encriptor.update(msg) + encriptor.finalize()
-        self.txtSaidaDados.Clear()
-        self.txtSaidaDados.WriteText(mensagemEncriptada.hex())
-
-    def decrypt_by_AES_CTR(self, chave, iv, msgEnc):
-        decriptor = Cipher(algorithms.AES(chave), modes.CTR(iv), backend=default_backend()).decryptor()
-        mensagemDecriptada = decriptor.update(msgEnc) + decriptor.finalize()
-        self.txtSaidaDados.Clear()
-        self.txtSaidaDados.WriteText(mensagemDecriptada.decode())
-
-    def set_up_for_AES_GCM(self):
-        self.txtChave.SetEditable(True)
-        self.txtChave.SetBackgroundColour((255, 255, 255))
-        self.txtIV.SetEditable(True)
-        self.txtIV.SetBackgroundColour((255, 255, 255))
-        self.buttonGerarChaveEIV.Enable()
-        self.buttonCriptografar.Enable()
-        self.buttonDecriptografar.Enable()
-
-    def generate_key_for_AES_GCM(self):
-        self.txtChave.Clear()
-        self.txtChave.WriteText(aead.AESGCM.generate_key(256).hex())
-        self.txtIV.Clear()
-        self.txtIV.WriteText(os.urandom(16).hex())
-
-    def encrypt_in_AES_GCM(self, chave, iv, msg):
-        mensagemEncriptada = aead.AESGCM(chave).encrypt(iv, msg, None)
-        self.txtSaidaDados.Clear()
-        self.txtSaidaDados.WriteText(mensagemEncriptada.hex())
-
-    def decrypt_by_AES_GCM(self, chave, iv, msgEnc):
-        mensagemDecriptada = aead.AESGCM(chave).decrypt(iv, msgEnc, None)
-        self.txtSaidaDados.Clear()
-        self.txtSaidaDados.WriteText(mensagemDecriptada.decode())
-
-    def set_up_for_AES_CBC(self):
-        self.txtChave.SetEditable(True)
-        self.txtChave.SetBackgroundColour((255, 255, 255))
-        self.txtIV.SetEditable(True)
-        self.txtIV.SetBackgroundColour((255, 255, 255))
-        self.buttonGerarChaveEIV.Enable()
-        self.buttonCriptografar.Enable()
-        self.buttonDecriptografar.Enable()
-
-    def generate_key_for_AES_CBC(self):
-        self.txtChave.Clear()
-        self.txtChave.WriteText(os.urandom(16).hex())
-        self.txtIV.Clear()
-        self.txtIV.WriteText(os.urandom(16).hex())
-
-    def encrypt_in_AES_CBC(self, chave, iv, msg):
-        padder = pad.PKCS7(algorithms.AES.block_size).padder()
-        msg = padder.update(msg) + padder.finalize()
-        encriptor = Cipher(algorithms.AES(chave), modes.CBC(iv), backend=default_backend()).encryptor()
-        mensagemEncriptada = encriptor.update(msg) + encriptor.finalize()
-        self.txtSaidaDados.Clear()
-        self.txtSaidaDados.WriteText(mensagemEncriptada.hex())
-
-    def decrypt_by_AES_CBC(self, chave, iv, msgEnc):
-        decriptor = Cipher(algorithms.AES(chave), modes.CBC(iv), backend=default_backend()).decryptor()
-        mensagemDecriptada = decriptor.update(msgEnc) + decriptor.finalize()
-        unpadder = pad.PKCS7(algorithms.AES.block_size).unpadder()
-        mensagemDecriptada = unpadder.update(mensagemDecriptada) + unpadder.finalize()
-        self.txtSaidaDados.Clear()
-        self.txtSaidaDados.WriteText(mensagemDecriptada.decode())
+        self._txtSaidaDados.Clear()
+        self._txtSaidaDados.WriteText(mensagemEncriptada.hex())
 
     def criptografia_nao_suportada(self, msg):
         wx.MessageDialog(self, message=msg, style=wx.ICON_ERROR).ShowModal()
+
+    def gerarHash(self, msg):
+        if self.__formulaHashOuCriptoEscolhida in self._Hash_para_escolher:
+            hashEscolhido = getattr(hashes, self.__formulaHashOuCriptoEscolhida)
+            digest = hashes.Hash(hashEscolhido(), backend=default_backend())
+            digest.update(msg)
+            hashedMsg = digest.finalize()
+            self._txtSaidaDados.Clear()
+            self._txtSaidaDados.WriteText(hashedMsg.hex())
+        else:
+            wx.MessageDialog(self, message="Formula hash escolhida não suportada.",
+                             style=wx.ICON_ERROR, caption='Erro').ShowModal()
+
+    def decriptografar(self):
+        if self.__formulaHashOuCriptoEscolhida in self._Criptografia_para_escolher:
+            cripto = self.__formulaHashOuCriptoEscolhida.split('_')
+            algoritmo = getattr(algorithms, cripto[0])
+            block_size = getattr(algoritmo, 'block_size', None)
+            try:
+                msgEnc = bytes.fromhex(self._txtEntradaDados.GetValue())
+                chave = bytes.fromhex(self._txtChave.GetValue())
+                iv = bytes.fromhex(self._txtIV.GetValue())
+                if len(cripto) > 1:
+                    modo = getattr(modes, cripto[1], None)
+                    modo = None if modo is None else modo(iv)
+                else:
+                    modo = None
+                if modo is not None:
+                    decriptor = Cipher(algoritmo(chave), modo, backend=default_backend()).decryptor()
+                else:
+                    decriptor = Cipher(algoritmo(chave, iv), modo, backend=default_backend()).decryptor()
+                mensagemDecriptada = decriptor.update(msgEnc) + decriptor.finalize()
+                if block_size is not None:
+                    unpadder = pad.PKCS7(algoritmo.block_size).unpadder()
+                    mensagemDecriptada = unpadder.update(mensagemDecriptada) + unpadder.finalize()
+                self._txtSaidaDados.Clear()
+                self._txtSaidaDados.WriteText(mensagemDecriptada.decode())
+            except ValueError as error:
+                wx.MessageDialog(self, message=error.args[0], style=wx.ICON_ERROR, caption='Erro').ShowModal()
 
 
 class Cifrador(wx.App):
