@@ -1,17 +1,20 @@
 import wx
 import os
+import cryptography.exceptions
 import cryptography.hazmat.primitives.padding as pad
 import cryptography.hazmat.primitives.hashes as hashes
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hmac
 from cryptography.hazmat.primitives.ciphers import modes, algorithms, Cipher
 
 
 class MyWindow(wx.Frame):
     """"Janela contendo tudo"""
 
-    __tiposAlteracoes = ('Criptografia', 'Hash')
+    __tiposAlteracoes = ('Criptografia', 'Hash', 'Hmac')
     _Hash_para_escolher = ('MD5', 'SHA1', 'SHA256', 'SHA512', 'SHA3_256', 'SHA3_512', 'SHA512_256')
     _Criptografia_para_escolher = ('AES_CTR', 'AES_CBC', 'AES_OFB', 'AES_CFB', 'AES_XTS', 'ChaCha20')
+    _Hmac_para_escolher = ('HMAC-MD5', 'HMAC-SHA1', 'HMAC-SHA256', 'HMAC-SHA512', 'HMAC-SHA3_256', 'HMAC-SHA3_512')
     __tipoAlteracaoEscolhida = ''
     __formulaHashOuCriptoEscolhida = ''
 
@@ -129,9 +132,9 @@ class MyWindow(wx.Frame):
             nome_metodo = 'set_up_for_' + str(tipoAlteracaoEscolhida)
             method = getattr(self, nome_metodo)
             method()
+            self.eventoComboBoxFormulaHashOuCripto(None)
 
     def eventoComboBoxFormulaHashOuCripto(self, event):
-        """Precisa ser alterado para arrumar a função de geração de chave"""
         tipoCriptografia = self.comboBoxFormulaHashOuCripto.GetValue()
         nome_alteracao = '_' + str(self.__tipoAlteracaoEscolhida) + '_para_escolher'
         listaFormulas = getattr(self, nome_alteracao)
@@ -148,6 +151,11 @@ class MyWindow(wx.Frame):
                 self._txtChave.WriteText(os.urandom(key_size).hex())
                 self._txtIV.Clear()
                 self._txtIV.WriteText(os.urandom(16).hex())
+        elif self.__tipoAlteracaoEscolhida == 'Hmac':
+            if self.__formulaHashOuCriptoEscolhida in self._Hmac_para_escolher:
+                key_size = int((self.radio_btn_key_size.GetItemLabel(self.radio_btn_key_size.GetSelection()))) // 8
+                self._txtChave.Clear()
+                self._txtChave.WriteText(os.urandom(key_size).hex())
 
     def eventoCriptografarBtn(self, event):
         """Falta verificar se todos os campos estão preenchidos corretamente"""
@@ -158,6 +166,8 @@ class MyWindow(wx.Frame):
                 self.criptografar(msg)
             elif self.__tipoAlteracaoEscolhida == 'Hash':
                 self.gerarHash(msg)
+            elif self.__tipoAlteracaoEscolhida == 'Hmac':
+                self.gerarHmac(msg)
         else:
             self.error_dialog("Selecione que tipo de alteração deseja fazer, Criptografia ou Hash.")
 
@@ -166,6 +176,8 @@ class MyWindow(wx.Frame):
         if self.__tipoAlteracaoEscolhida in self.__tiposAlteracoes:
             if self.__tipoAlteracaoEscolhida == 'Criptografia':
                 self.decriptografar()
+            if self.__tipoAlteracaoEscolhida == 'Hmac':
+                self.verificar()
 
     def set_up_for_Criptografia(self):
         self._txtChave.SetEditable(True)
@@ -188,6 +200,32 @@ class MyWindow(wx.Frame):
         self.buttonCriptografar.SetLabelText('Gerar Hash')
         self.buttonDecriptografar.Disable()
         self.comboBoxFormulaHashOuCripto.SetSelection(0)
+
+    def set_up_for_Hmac(self):
+        self._txtChave.SetEditable(True)
+        self._txtChave.SetBackgroundColour((255, 255, 255))
+        self._txtIV.SetEditable(False)
+        self._txtIV.SetBackgroundColour((150, 150, 150))
+        self.buttonGerarChaveEIV.Enable()
+        self.buttonCriptografar.Enable()
+        self.buttonCriptografar.SetLabelText('Assinar')
+        self.buttonDecriptografar.Enable()
+        self.buttonDecriptografar.SetLabelText('Verificar')
+        self.comboBoxFormulaHashOuCripto.SetSelection(0)
+
+    def error_dialog(self, msg):
+        wx.MessageDialog(self, message=msg, style=wx.ICON_ERROR).ShowModal()
+
+    def gerarHash(self, msg):
+        if self.__formulaHashOuCriptoEscolhida in self._Hash_para_escolher:
+            hashEscolhido = getattr(hashes, self.__formulaHashOuCriptoEscolhida)
+            digest = hashes.Hash(hashEscolhido(), backend=default_backend())
+            digest.update(msg)
+            hashedMsg = digest.finalize()
+            self._txtSaidaDados.Clear()
+            self._txtSaidaDados.WriteText(hashedMsg.hex())
+        else:
+            self.error_dialog("Formula hash escolhida não suportada.")
 
     def criptografar(self, msg):
         chave = bytes.fromhex(self._txtChave.GetValue())
@@ -213,20 +251,6 @@ class MyWindow(wx.Frame):
             self._txtSaidaDados.WriteText(mensagemEncriptada.hex())
         except ValueError as error:
             self.error_dialog(error.args[0])
-
-    def error_dialog(self, msg):
-        wx.MessageDialog(self, message=msg, style=wx.ICON_ERROR).ShowModal()
-
-    def gerarHash(self, msg):
-        if self.__formulaHashOuCriptoEscolhida in self._Hash_para_escolher:
-            hashEscolhido = getattr(hashes, self.__formulaHashOuCriptoEscolhida)
-            digest = hashes.Hash(hashEscolhido(), backend=default_backend())
-            digest.update(msg)
-            hashedMsg = digest.finalize()
-            self._txtSaidaDados.Clear()
-            self._txtSaidaDados.WriteText(hashedMsg.hex())
-        else:
-            self.error_dialog("Formula hash escolhida não suportada.")
 
     def decriptografar(self):
         if self.__formulaHashOuCriptoEscolhida in self._Criptografia_para_escolher:
@@ -254,6 +278,40 @@ class MyWindow(wx.Frame):
                 self._txtSaidaDados.WriteText(mensagemDecriptada.decode())
             except ValueError as error:
                 self.error_dialog(error.args[0])
+
+    def gerarHmac(self, msg):
+        try:
+            chave = bytes.fromhex(self._txtChave.GetValue())
+            cripto = self.__formulaHashOuCriptoEscolhida.split('-')
+            hashEscolhido = getattr(hashes, cripto[1])
+            hmacGenerator = hmac.HMAC(chave, hashEscolhido(), backend=default_backend())
+            hmacGenerator.update(msg)
+            assinaturaHmac = hmacGenerator.finalize()
+            self._txtSaidaDados.Clear()
+            self._txtSaidaDados.WriteText(assinaturaHmac.hex())
+        except ValueError as error:
+            self.error_dialog(error.args[0])
+
+    def verificar(self):
+        try:
+            msg = self._txtEntradaDados.GetValue().encode()
+            chave = bytes.fromhex(self._txtChave.GetValue())
+            cripto = self.__formulaHashOuCriptoEscolhida.split('-')
+            dialog = wx.TextEntryDialog(self, 'Cole a suposta assinatura para a mensagem adicionada anteriormente:', caption='Verificar Assinatura')
+            dialog.ShowModal()
+            if not dialog.GetValue() == '':
+                assinatura = bytes.fromhex(dialog.GetValue())
+                hashEscolhido = getattr(hashes, cripto[1])
+                hmacGenerator = hmac.HMAC(chave, hashEscolhido(), backend=default_backend())
+                hmacGenerator.update(msg)
+                hmacGenerator.verify(assinatura)
+                self._txtSaidaDados.Clear()
+                self._txtSaidaDados.WriteText('Mensagem autêntica.\nEla foi gerada por essa chave e não foi alterada.')
+                wx.MessageDialog(self, 'Mensagem verificada com Sucesso!', style=wx.OK).ShowModal()
+        except ValueError as error:
+            self.error_dialog(error.args[0])
+        except cryptography.exceptions.InvalidSignature as notValid:
+            self.error_dialog("Mensagem não foi gerada por essa chave!")
 
 
 class Cifrador(wx.App):
