@@ -1,9 +1,11 @@
 import wx
 import os
+import shelve
 import cryptography.exceptions
 import cryptography.hazmat.primitives.padding as pad
 import cryptography.hazmat.primitives.hashes as hashes
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hmac
 from cryptography.hazmat.primitives.ciphers import modes, algorithms, Cipher, aead
 
@@ -23,6 +25,25 @@ class MyWindow(wx.Frame):
         wx.Frame.__init__(self, parent=parent, title=title, size=size)
         self.SetMinSize(size)
         self.SetMaxSize(size)
+
+        # Criando menu superior e bara de status
+        self.menuBar = wx.MenuBar()
+
+        self.menu = wx.Menu()
+        sobre = self.menu.Append(wx.ID_ABOUT, "&Sobre", " Informação sobre esse programa")
+        salvar = self.menu.Append(wx.ID_SAVE, "&Salvar",
+                                  " Salva as configurações atuais para facilitar a decriptografia.")
+        abrir = self.menu.Append(wx.ID_OPEN, "&Abrir",
+                                 " Carrega as configurações necessárias para decriptografar uma mensagem específica.")
+
+        self.menuBar.Append(self.menu, "&Menu")
+
+        self.Bind(wx.EVT_MENU, self.sobre, sobre)
+        self.Bind(wx.EVT_MENU, self.salvar, salvar)
+        self.Bind(wx.EVT_MENU, self.carregar, abrir)
+
+        self.SetMenuBar(self.menuBar)
+        self.CreateStatusBar()
 
         # Criando as Seções de layout da página
         self.mainSizer = wx.BoxSizer(wx.VERTICAL)
@@ -249,10 +270,7 @@ class MyWindow(wx.Frame):
                 encriptor = Cipher(algoritmo(chave, iv), modo, backend=default_backend()).encryptor()
             mensagemEncriptada = encriptor.update(msg) + encriptor.finalize()
             if modo is not None and cripto[1] == 'GCM':
-                print('Msg Enc: ' + mensagemEncriptada.hex())
-                print('Tag: ' + encriptor.tag.hex())
                 mensagemEncriptada += encriptor.tag
-                print('Msg Enc com tag: ' + mensagemEncriptada.hex())
             self._txtSaidaDados.Clear()
             self._txtSaidaDados.WriteText(mensagemEncriptada.hex())
         except ValueError as error:
@@ -270,11 +288,8 @@ class MyWindow(wx.Frame):
                 if len(cripto) > 1:
                     modo = getattr(modes, cripto[1], None)
                     if cripto[1] == 'GCM':
-                        print("Msg EnC com tag: " + msgEnc.hex())
                         tag = msgEnc[-16:]
-                        print('Tag: ' + tag.hex())
                         msgEnc = msgEnc[0:-16]
-                        print('Msg Enc: ' + msgEnc.hex())
                         modo = None if modo is None else modo(iv, tag)
                     else:
                         modo = None if modo is None else modo(iv)
@@ -311,7 +326,8 @@ class MyWindow(wx.Frame):
             msg = self._txtEntradaDados.GetValue().encode()
             chave = bytes.fromhex(self._txtChave.GetValue())
             cripto = self.__formulaHashOuCriptoEscolhida.split('-')
-            dialog = wx.TextEntryDialog(self, 'Cole a suposta assinatura para a mensagem adicionada anteriormente:', caption='Verificar Assinatura')
+            dialog = wx.TextEntryDialog(self, 'Cole a suposta assinatura para a mensagem adicionada anteriormente:',
+                                        caption='Verificar Assinatura')
             dialog.ShowModal()
             if not dialog.GetValue() == '':
                 assinatura = bytes.fromhex(dialog.GetValue())
@@ -326,6 +342,89 @@ class MyWindow(wx.Frame):
             self.error_dialog(error.args[0])
         except cryptography.exceptions.InvalidSignature as notValid:
             self.error_dialog("Mensagem não foi gerada por essa chave!")
+
+    def sobre(self, evt):
+        wx.MessageDialog(self,
+                         'Esse programa serve para criptografar, decriptografar, gerar hashs e gerar ou verificar assinaturas Hmac.'
+                         '\n\n'
+                         'Com exceção das mensagens, que devem ser adicionadas como texto plano, todas as outras informações '
+                         'devem estar em hexadecimal, incluindo chaves, iv, textos criptografados e assinaturas hmac.\n'
+                         'Na criptografia AES e no modo GCM a tag gerada é concatenada ao final do resultado da cifragem'
+                         ' e deve ser colocado da mesma forma quando se quiser decifra-lo.',
+                         style=wx.OK_DEFAULT).ShowModal()
+
+    def salvar(self, evt):
+        dados_para_salvar = self.__tipoAlteracaoEscolhida
+        dados_para_salvar += ":" + self.__formulaHashOuCriptoEscolhida
+        if self.__tipoAlteracaoEscolhida in self.__tiposAlteracoes:
+            if self.__tipoAlteracaoEscolhida == 'Criptografia':
+                dados_para_salvar += ":" + self._txtChave.GetValue()
+                dados_para_salvar += ":" + self._txtIV.GetValue()
+            elif self.__tipoAlteracaoEscolhida == 'Hmac':
+                dados_para_salvar += ":" + self._txtChave.GetValue()
+
+            dialogNome = wx.TextEntryDialog(self, 'Escolha um nome para o arquivo:',
+                                            caption='Salvar Configurações de Criptografia')
+            dialogNome.ShowModal()
+            dialogSenha = wx.TextEntryDialog(self,
+                                             'Entre uma senha para criptografar essas configurações, ela será necessária '
+                                             'para carregar essas informações mais tarde:',
+                                             caption='Salvar configurações de Criptografia')
+            dialogSenha.ShowModal()
+            nome = dialogNome.GetValue()
+            senha = dialogSenha.GetValue()
+            if senha is not '' or None:
+                salt = os.urandom(32)
+                senha = senha.encode()
+                dados_para_salvar = dados_para_salvar.encode()
+                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=100000,
+                                   backend=default_backend()).derive(senha)
+                nounce = os.urandom(16)
+                aesgcm = aead.AESGCM(chave)
+                dados_criptografados = aesgcm.encrypt(nounce, dados_para_salvar, None)
+                dados_para_salvar = salt + dados_criptografados + nounce
+                arquivo = shelve.open(nome)
+                arquivo['cript'] = dados_para_salvar
+                arquivo.close()
+
+    def carregar(self, evt):
+        dialogNome = wx.TextEntryDialog(self, 'Digite o nome do arquivo que deseja abrir:',
+                                        caption='Carregar Configurações de Criptografia')
+        dialogNome.ShowModal()
+        nome = dialogNome.GetValue()
+        if nome is not '':
+            arq = shelve.open(nome)
+            try:
+                dados = arq['cript']
+                salt = dados[:32]
+                nounce = dados[-16:]
+                dados = dados[32:len(dados)-16]
+                dialogSenha = wx.TextEntryDialog(self,
+                                                 'Entre a senha para decriptografar essas configurações:',
+                                                 caption='Carregar configurações de Criptografia')
+                dialogSenha.ShowModal()
+                senha = dialogSenha.GetValue().encode()
+                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=100000, backend=default_backend()).derive(senha)
+                dados_decriptografados = aead.AESGCM(chave).decrypt(nounce, dados, None)
+                dados_separados = dados_decriptografados.decode().split(':')
+                if dados_separados[0] == 'Criptografia':
+                    self.comboBoxTipoAlteracao.SetSelection(0)
+                    self.eventoComboBoxTipoAlteracao(None)
+                    self.comboBoxFormulaHashOuCripto.SetSelection(self._Criptografia_para_escolher.index(dados_separados[1]))
+                    self.eventoComboBoxFormulaHashOuCripto(None)
+                    self._txtChave.Clear()
+                    self._txtChave.WriteText(dados_separados[2])
+                    self._txtIV.Clear()
+                    self._txtIV.WriteText(dados_separados[3])
+                elif dados_separados[0] == 'Hmac':
+                    self.comboBoxTipoAlteracao.SetSelection(2)
+                    self.eventoComboBoxTipoAlteracao(None)
+                    self.comboBoxFormulaHashOuCripto.SetSelection(self._Criptografia_para_escolher.index(dados_separados[1]))
+                    self.eventoComboBoxFormulaHashOuCripto(None)
+                    self._txtChave.Clear()
+                    self._txtChave.WriteText(dados_separados[2])
+            except KeyError:
+                self.error_dialog('Não há nenhum arquivo com esse nome que possua configurações para esse programa.')
 
 
 class Cifrador(wx.App):
