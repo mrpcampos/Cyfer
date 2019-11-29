@@ -135,6 +135,9 @@ class MyWindow(wx.Frame):
         self.comboBoxFormulaHashOuCripto.SetSelection(2)
         self.eventoComboBoxFormulaHashOuCripto(None)
 
+        # Abre a popup para falar sobre como o programa funciona
+        self.sobre(None)
+
     def eventoComboBoxTipoAlteracao(self, event):
         tipoAlteracaoEscolhida = self.comboBoxTipoAlteracao.GetValue()
         if tipoAlteracaoEscolhida in self.__tiposAlteracoes:
@@ -353,7 +356,7 @@ class MyWindow(wx.Frame):
                          'Com exceção das mensagens, que devem ser adicionadas como texto plano, todas as outras informações '
                          'devem estar em hexadecimal, incluindo chaves, iv, textos criptografados e assinaturas hmac.\n'
                          'Na criptografia AES e no modo GCM a tag gerada é concatenada ao final do resultado da cifragem'
-                         ' e deve ser colocado da mesma forma quando se quiser decifra-lo.',
+                         ' (16 bytes, ultimos 32 caracteres) e deve ser colocado da mesma forma quando se quiser decifra-lo.',
                          style=wx.OK_DEFAULT).ShowModal()
 
     def salvar(self, evt):
@@ -403,19 +406,21 @@ class MyWindow(wx.Frame):
                 dados = arq['cript']
                 salt = dados[:32]
                 nounce = dados[-16:]
-                dados = dados[32:len(dados)-16]
+                dados = dados[32:len(dados) - 16]
                 dialogSenha = wx.TextEntryDialog(self,
                                                  'Entre a senha para decriptografar essas configurações:',
                                                  caption='Carregar configurações de Criptografia')
                 dialogSenha.ShowModal()
                 senha = dialogSenha.GetValue().encode()
-                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=1000000, backend=default_backend()).derive(senha)
+                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=1000000,
+                                   backend=default_backend()).derive(senha)
                 dados_decriptografados = aead.AESGCM(chave).decrypt(nounce, dados, None)
                 dados_separados = dados_decriptografados.decode().split(':')
                 if dados_separados[0] == 'Criptografia':
                     self.comboBoxTipoAlteracao.SetSelection(0)
                     self.eventoComboBoxTipoAlteracao(None)
-                    self.comboBoxFormulaHashOuCripto.SetSelection(self._Criptografia_para_escolher.index(dados_separados[1]))
+                    self.comboBoxFormulaHashOuCripto.SetSelection(
+                        self._Criptografia_para_escolher.index(dados_separados[1]))
                     self.eventoComboBoxFormulaHashOuCripto(None)
                     self._txtChave.Clear()
                     self._txtChave.WriteText(dados_separados[2])
@@ -426,7 +431,8 @@ class MyWindow(wx.Frame):
                 elif dados_separados[0] == 'Hmac':
                     self.comboBoxTipoAlteracao.SetSelection(2)
                     self.eventoComboBoxTipoAlteracao(None)
-                    self.comboBoxFormulaHashOuCripto.SetSelection(self._Criptografia_para_escolher.index(dados_separados[1]))
+                    self.comboBoxFormulaHashOuCripto.SetSelection(
+                        self._Criptografia_para_escolher.index(dados_separados[1]))
                     self.eventoComboBoxFormulaHashOuCripto(None)
                     self._txtChave.Clear()
                     self._txtChave.WriteText(dados_separados[2])
