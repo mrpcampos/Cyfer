@@ -144,6 +144,9 @@ class MyWindow(wx.Frame):
         self.comboBoxFormulaHashOuCripto.SetSelection(2)
         self.eventoComboBoxFormulaHashOuCripto(None)
 
+        # Abre a popup para falar sobre como o programa funciona
+        self.sobre(None)
+
     def eventoComboBoxTipoAlteracao(self, event):
         tipoAlteracaoEscolhida = self.comboBoxTipoAlteracao.GetValue()
         if tipoAlteracaoEscolhida in self.__tiposAlteracoes:
@@ -360,11 +363,13 @@ class MyWindow(wx.Frame):
             self.error_dialog(_("Mensagem não foi gerada por essa chave!"))
 
     def sobre(self, evt):
-        wx.MessageDialog(self,
-                         _(
-                             """Esse programa serve para criptografar, decriptografar, gerar hashs e gerar ou verificar assinaturas Hmac.\n\n"""
-                             """Com exceção das mensagens, que devem ser adicionadas como texto plano, todas as outras informações  devem estar em hexadecimal, incluindo chaves, iv, textos criptografados e assinaturas hmac.\n"""
-                             """Na criptografia AES e no modo GCM a tag gerada é concatenada ao final do resultado da cifragem e deve ser colocado da mesma forma quando se quiser decifra-lo."""),
+        wx.MessageDialog(self, _(
+            'Esse programa serve para criptografar, decriptografar, gerar hashs e gerar ou verificar assinaturas Hmac.'
+            '\n\n'
+            'Com exceção das mensagens, que devem ser adicionadas como texto plano, todas as outras informações '
+            'devem estar em hexadecimal, incluindo chaves, iv, textos criptografados e assinaturas hmac.\n'
+            'Na criptografia AES e no modo GCM a tag gerada é concatenada ao final do resultado da cifragem'
+            ' (16 bytes, ultimos 32 caracteres) e deve ser colocado da mesma forma quando se quiser decifra-lo.'),
                          style=wx.OK_DEFAULT).ShowModal()
 
     def lingua(self, evt):
