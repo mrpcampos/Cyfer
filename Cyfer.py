@@ -1,6 +1,7 @@
 import wx
 import os
 import shelve
+from app_base import BaseApp
 import cryptography.exceptions
 import cryptography.hazmat.primitives.padding as pad
 import cryptography.hazmat.primitives.hashes as hashes
@@ -13,14 +14,15 @@ from cryptography.hazmat.primitives.ciphers import modes, algorithms, Cipher, ae
 class MyWindow(wx.Frame):
     """"Janela contendo tudo"""
 
-    __tiposAlteracoes = ('Criptografia', 'Hash', 'Hmac')
+    __tiposAlteracoes = (_('Criptografia'), _('Hash'), _('Hmac'))
+    __tiposAlteracoes_default = ('Criptografia', 'Hash', 'Hmac')
     _Hash_para_escolher = ('MD5', 'SHA1', 'SHA256', 'SHA512', 'SHA3_256', 'SHA3_512', 'SHA512_256')
     _Criptografia_para_escolher = ('AES_CTR', 'AES_CBC', 'AES_GCM', 'AES_OFB', 'AES_CFB', 'AES_XTS', 'ChaCha20')
     _Hmac_para_escolher = ('HMAC-MD5', 'HMAC-SHA1', 'HMAC-SHA256', 'HMAC-SHA512', 'HMAC-SHA3_256', 'HMAC-SHA3_512')
     __tipoAlteracaoEscolhida = ''
     __formulaHashOuCriptoEscolhida = ''
 
-    def __init__(self, parent=None, title="Window"):
+    def __init__(self, parent=None, title="Cyfer"):
         size = (1024, 560)
         wx.Frame.__init__(self, parent=parent, title=title, size=size)
         self.SetMinSize(size)
@@ -30,17 +32,24 @@ class MyWindow(wx.Frame):
         self.menuBar = wx.MenuBar()
 
         self.menu = wx.Menu()
-        sobre = self.menu.Append(wx.ID_ABOUT, "&Sobre", " Informação sobre esse programa")
-        salvar = self.menu.Append(wx.ID_SAVE, "&Salvar",
-                                  " Salva as configurações atuais para facilitar a decriptografia.")
-        abrir = self.menu.Append(wx.ID_OPEN, "&Abrir",
-                                 " Carrega as configurações necessárias para decriptografar uma mensagem específica.")
+        sobre = self.menu.Append(wx.ID_ABOUT, _("Sobre"),
+                                 _(" Informação sobre esse programa"))
+        lingua = self.menu.Append(wx.ID_CONVERT, _("Língua"),
+                                  _(" Mudar a língua do programa"))
+        salvar = self.menu.Append(wx.ID_SAVE, _("Salvar"),
+                                  _(" Salva as configurações atuais para facilitar a decriptografia."))
+        abrir = self.menu.Append(wx.ID_OPEN, _("Abrir"),
+                                 _("Carregar arquivo de configurações específico a partir do nome."))
+        # pesquisar = self.menu.Append(wx.ID_OPEN, _("Pesquisar"),
+        #                          _("Pesquisar arquivos disponíveis na pasta base."))
 
-        self.menuBar.Append(self.menu, "&Menu")
+        self.menuBar.Append(self.menu, _("&Menu"))
 
         self.Bind(wx.EVT_MENU, self.sobre, sobre)
+        self.Bind(wx.EVT_MENU, self.lingua, lingua)
         self.Bind(wx.EVT_MENU, self.salvar, salvar)
         self.Bind(wx.EVT_MENU, self.carregar, abrir)
+        # self.Bind(wx.EVT_MENU, self.pesquisar, pesquisar)
 
         self.SetMenuBar(self.menuBar)
         self.CreateStatusBar()
@@ -80,19 +89,19 @@ class MyWindow(wx.Frame):
         # Chave e Iv
         self.key_Iv_Sizer.AddSpacer(20)
         self.key_Iv_Sizer.AddStretchSpacer()
-        self.buttonGerarChaveEIV = wx.Button(self, label="Gerar Chave e IV")
+        self.buttonGerarChaveEIV = wx.Button(self, label=_("Gerar Chave e IV"))
         self.key_Iv_Sizer.Add(self.buttonGerarChaveEIV, 0, wx.ALIGN_CENTER_VERTICAL)
         self.key_Iv_Sizer.AddSpacer(5)
         self.radio_btn_key_size = wx.RadioBox(self, choices=['128', '256'], majorDimension=1)
         self.key_Iv_Sizer.Add(self.radio_btn_key_size, 0, wx.ALIGN_CENTER_VERTICAL)
         self.key_Iv_Sizer.AddStretchSpacer()
-        self.labelChave = wx.StaticText(self, label="Chave:", style=wx.BOLD)
+        self.labelChave = wx.StaticText(self, label=_("Chave:"), style=wx.BOLD)
         self.key_Iv_Sizer.Add(self.labelChave, 0, wx.ALIGN_CENTER_VERTICAL)
         self.key_Iv_Sizer.AddSpacer(5)
         self._txtChave = wx.TextCtrl(self, size=(320, -1), name="Chave", style=wx.LC_SINGLE_SEL)
         self.key_Iv_Sizer.Add(self._txtChave, 0, wx.ALIGN_CENTER_VERTICAL)
         self.key_Iv_Sizer.AddStretchSpacer()
-        self.labelIV = wx.StaticText(self, label="IV/NOUNCE:", style=wx.BOLD)
+        self.labelIV = wx.StaticText(self, label=_("IV/NOUNCE:"), style=wx.BOLD)
         self.key_Iv_Sizer.Add(self.labelIV, 0, wx.ALIGN_CENTER_VERTICAL)
         self.key_Iv_Sizer.AddSpacer(5)
         self._txtIV = wx.TextCtrl(self, size=(320, -1), name="IV", style=wx.LC_SINGLE_SEL)
@@ -107,10 +116,10 @@ class MyWindow(wx.Frame):
         self.sizerMensagens.AddStretchSpacer(1)
         self.btnsCriptoEDecriptoSizer = wx.BoxSizer(wx.VERTICAL)
         self.btnsCriptoEDecriptoSizer.AddStretchSpacer(3)
-        self.buttonCriptografar = wx.Button(self, label="Criptografar")
+        self.buttonCriptografar = wx.Button(self, label=_("Criptografar"))
         self.btnsCriptoEDecriptoSizer.Add(self.buttonCriptografar, 0, wx.ALIGN_CENTER_HORIZONTAL, wx.ALIGN_TOP)
         self.btnsCriptoEDecriptoSizer.AddSpacer(20)
-        self.buttonDecriptografar = wx.Button(self, label="Decriptografar")
+        self.buttonDecriptografar = wx.Button(self, label=_("Decriptografar"))
         self.btnsCriptoEDecriptoSizer.Add(self.buttonDecriptografar, 0, wx.ALIGN_CENTER_HORIZONTAL, wx.ALIGN_BOTTOM)
         self.btnsCriptoEDecriptoSizer.AddStretchSpacer(3)
         self.sizerMensagens.Add(self.btnsCriptoEDecriptoSizer, 0, wx.ALIGN_CENTER)
@@ -131,13 +140,15 @@ class MyWindow(wx.Frame):
 
         # Define a escolha padrão da combo box e da trigger no evento
         self.comboBoxTipoAlteracao.SetSelection(0)
-        self.__tipoAlteracaoEscolhida = self.__tiposAlteracoes[0]
+        self.__tipoAlteracaoEscolhida = self.__tiposAlteracoes_default[0]
         self.comboBoxFormulaHashOuCripto.SetSelection(2)
         self.eventoComboBoxFormulaHashOuCripto(None)
 
     def eventoComboBoxTipoAlteracao(self, event):
         tipoAlteracaoEscolhida = self.comboBoxTipoAlteracao.GetValue()
         if tipoAlteracaoEscolhida in self.__tiposAlteracoes:
+            tipoAlteracaoEscolhida = self.__tiposAlteracoes_default[
+                self.__tiposAlteracoes.index(tipoAlteracaoEscolhida)]
             self.__tipoAlteracaoEscolhida = tipoAlteracaoEscolhida
             nome_alteracao = '_' + str(tipoAlteracaoEscolhida) + '_para_escolher'
             listaFormulas = getattr(self, nome_alteracao)
@@ -162,7 +173,7 @@ class MyWindow(wx.Frame):
         if tipoCriptografia in listaFormulas:
             self.__formulaHashOuCriptoEscolhida = tipoCriptografia
         else:
-            self.error_dialog("Tipo de criptografia não suportado")
+            self.error_dialog(_("Tipo de criptografia não suportado"))
 
     def eventoGerarChaveBtn(self, event):
         if self.__tipoAlteracaoEscolhida == 'Criptografia':
@@ -190,7 +201,7 @@ class MyWindow(wx.Frame):
             elif self.__tipoAlteracaoEscolhida == 'Hmac':
                 self.gerarHmac(msg)
         else:
-            self.error_dialog("Selecione que tipo de alteração deseja fazer, Criptografia ou Hash.")
+            self.error_dialog(_("Selecione que tipo de alteração deseja fazer, Criptografia ou Hash."))
 
     def eventoDecriptografarBtn(self, event):
         """Falta verificar se todos os campos estão preenchidos corretamente"""
@@ -207,9 +218,9 @@ class MyWindow(wx.Frame):
         self._txtIV.SetBackgroundColour((255, 255, 255))
         self.buttonGerarChaveEIV.Enable()
         self.buttonCriptografar.Enable()
-        self.buttonCriptografar.SetLabelText('Criptografar')
+        self.buttonCriptografar.SetLabelText(_('Criptografar'))
         self.buttonDecriptografar.Enable()
-        self.buttonDecriptografar.SetLabelText('Decriptografar')
+        self.buttonDecriptografar.SetLabelText(_('Decriptografar'))
         self.comboBoxFormulaHashOuCripto.SetSelection(0)
 
     def set_up_for_Hash(self):
@@ -219,7 +230,7 @@ class MyWindow(wx.Frame):
         self._txtIV.SetBackgroundColour((150, 150, 150))
         self.buttonGerarChaveEIV.Disable()
         self.buttonCriptografar.Enable()
-        self.buttonCriptografar.SetLabelText('Gerar Hash')
+        self.buttonCriptografar.SetLabelText(_('Gerar Hash'))
         self.buttonDecriptografar.Disable()
         self.comboBoxFormulaHashOuCripto.SetSelection(0)
 
@@ -230,9 +241,9 @@ class MyWindow(wx.Frame):
         self._txtIV.SetBackgroundColour((150, 150, 150))
         self.buttonGerarChaveEIV.Enable()
         self.buttonCriptografar.Enable()
-        self.buttonCriptografar.SetLabelText('Assinar')
+        self.buttonCriptografar.SetLabelText(_('Assinar'))
         self.buttonDecriptografar.Enable()
-        self.buttonDecriptografar.SetLabelText('Verificar')
+        self.buttonDecriptografar.SetLabelText(_('Verificar'))
         self.comboBoxFormulaHashOuCripto.SetSelection(0)
 
     def error_dialog(self, msg):
@@ -247,7 +258,7 @@ class MyWindow(wx.Frame):
             self._txtSaidaDados.Clear()
             self._txtSaidaDados.WriteText(hashedMsg.hex())
         else:
-            self.error_dialog("Formula hash escolhida não suportada.")
+            self.error_dialog(_("Formula hash escolhida não suportada."))
 
     def criptografar(self, msg):
         chave = bytes.fromhex(self._txtChave.GetValue())
@@ -329,8 +340,9 @@ class MyWindow(wx.Frame):
             msg = self._txtEntradaDados.GetValue().encode()
             chave = bytes.fromhex(self._txtChave.GetValue())
             cripto = self.__formulaHashOuCriptoEscolhida.split('-')
-            dialog = wx.TextEntryDialog(self, 'Cole a suposta assinatura para a mensagem adicionada anteriormente:',
-                                        caption='Verificar Assinatura')
+            dialog = wx.TextEntryDialog(self, _(
+                'Cole a suposta assinatura para a mensagem adicionada anteriormente:'),
+                                        caption=_('Verificar Assinatura'))
             dialog.ShowModal()
             if not dialog.GetValue() == '':
                 assinatura = bytes.fromhex(dialog.GetValue())
@@ -339,22 +351,29 @@ class MyWindow(wx.Frame):
                 hmacGenerator.update(msg)
                 hmacGenerator.verify(assinatura)
                 self._txtSaidaDados.Clear()
-                self._txtSaidaDados.WriteText('Mensagem autêntica.\nEla foi gerada por essa chave e não foi alterada.')
-                wx.MessageDialog(self, 'Mensagem verificada com Sucesso!', style=wx.OK).ShowModal()
+                self._txtSaidaDados.WriteText(
+                    _('Mensagem autêntica.\nEla foi gerada por essa chave e não foi alterada.'))
+                wx.MessageDialog(self, _('Mensagem verificada com Sucesso!'), style=wx.OK).ShowModal()
         except ValueError as error:
             self.error_dialog(error.args[0])
         except cryptography.exceptions.InvalidSignature as notValid:
-            self.error_dialog("Mensagem não foi gerada por essa chave!")
+            self.error_dialog(_("Mensagem não foi gerada por essa chave!"))
 
     def sobre(self, evt):
         wx.MessageDialog(self,
-                         'Esse programa serve para criptografar, decriptografar, gerar hashs e gerar ou verificar assinaturas Hmac.'
-                         '\n\n'
-                         'Com exceção das mensagens, que devem ser adicionadas como texto plano, todas as outras informações '
-                         'devem estar em hexadecimal, incluindo chaves, iv, textos criptografados e assinaturas hmac.\n'
-                         'Na criptografia AES e no modo GCM a tag gerada é concatenada ao final do resultado da cifragem'
-                         ' e deve ser colocado da mesma forma quando se quiser decifra-lo.',
+                         _(
+                             """Esse programa serve para criptografar, decriptografar, gerar hashs e gerar ou verificar assinaturas Hmac.\n\n"""
+                             """Com exceção das mensagens, que devem ser adicionadas como texto plano, todas as outras informações  devem estar em hexadecimal, incluindo chaves, iv, textos criptografados e assinaturas hmac.\n"""
+                             """Na criptografia AES e no modo GCM a tag gerada é concatenada ao final do resultado da cifragem e deve ser colocado da mesma forma quando se quiser decifra-lo."""),
                          style=wx.OK_DEFAULT).ShowModal()
+
+    def lingua(self, evt):
+        dialog = wx.SingleChoiceDialog(self, _("Para qual língua você gostaria de mudar o programa?"),
+                                       _("Mudar Língua"),
+                                       choices=list(app.sup_languages), style=wx.OK | wx.CANCEL)
+        if dialog.ShowModal() == wx.ID_OK:
+            app.updateLanguage(dialog.StringSelection)
+            rebuild(self)
 
     def salvar(self, evt):
         dados_para_salvar = self.__tipoAlteracaoEscolhida
@@ -368,13 +387,14 @@ class MyWindow(wx.Frame):
                 dados_para_salvar += ":" + self._txtChave.GetValue()
                 dados_para_salvar += ":" + self._txtEntradaDados.GetValue()
 
-            dialogNome = wx.TextEntryDialog(self, 'Escolha um nome para o arquivo:',
-                                            caption='Salvar Configurações de Criptografia')
+            dialogNome = wx.TextEntryDialog(self, _('Escolha um nome para o arquivo:'),
+                                            caption=_('Salvar Configurações de Criptografia'))
             dialogNome.ShowModal()
             dialogSenha = wx.TextEntryDialog(self,
-                                             'Entre uma senha para criptografar essas configurações, ela será necessária '
-                                             'para carregar essas informações mais tarde:',
-                                             caption='Salvar configurações de Criptografia')
+                                             _(
+                                                 'Entre uma senha para criptografar essas configurações, ela será necessária '
+                                                 'para carregar essas informações mais tarde:'),
+                                             caption=_('Salvar configurações de Criptografia'))
             dialogSenha.ShowModal()
             nome = dialogNome.GetValue()
             senha = dialogSenha.GetValue()
@@ -393,8 +413,8 @@ class MyWindow(wx.Frame):
                 arquivo.close()
 
     def carregar(self, evt):
-        dialogNome = wx.TextEntryDialog(self, 'Digite o nome do arquivo que deseja abrir:',
-                                        caption='Carregar Configurações de Criptografia')
+        dialogNome = wx.TextEntryDialog(self, _('Digite o nome do arquivo que deseja abrir:'),
+                                        caption=_('Carregar Configurações de Criptografia'))
         dialogNome.ShowModal()
         nome = dialogNome.GetValue()
         if nome is not '':
@@ -403,19 +423,21 @@ class MyWindow(wx.Frame):
                 dados = arq['cript']
                 salt = dados[:32]
                 nounce = dados[-16:]
-                dados = dados[32:len(dados)-16]
+                dados = dados[32:len(dados) - 16]
                 dialogSenha = wx.TextEntryDialog(self,
-                                                 'Entre a senha para decriptografar essas configurações:',
-                                                 caption='Carregar configurações de Criptografia')
+                                                 _('Entre a senha para decriptografar essas configurações:'),
+                                                 caption=_('Carregar configurações de Criptografia'))
                 dialogSenha.ShowModal()
                 senha = dialogSenha.GetValue().encode()
-                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=1000000, backend=default_backend()).derive(senha)
+                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=1000000,
+                                   backend=default_backend()).derive(senha)
                 dados_decriptografados = aead.AESGCM(chave).decrypt(nounce, dados, None)
                 dados_separados = dados_decriptografados.decode().split(':')
                 if dados_separados[0] == 'Criptografia':
                     self.comboBoxTipoAlteracao.SetSelection(0)
                     self.eventoComboBoxTipoAlteracao(None)
-                    self.comboBoxFormulaHashOuCripto.SetSelection(self._Criptografia_para_escolher.index(dados_separados[1]))
+                    self.comboBoxFormulaHashOuCripto.SetSelection(
+                        self._Criptografia_para_escolher.index(dados_separados[1]))
                     self.eventoComboBoxFormulaHashOuCripto(None)
                     self._txtChave.Clear()
                     self._txtChave.WriteText(dados_separados[2])
@@ -426,21 +448,45 @@ class MyWindow(wx.Frame):
                 elif dados_separados[0] == 'Hmac':
                     self.comboBoxTipoAlteracao.SetSelection(2)
                     self.eventoComboBoxTipoAlteracao(None)
-                    self.comboBoxFormulaHashOuCripto.SetSelection(self._Criptografia_para_escolher.index(dados_separados[1]))
+                    self.comboBoxFormulaHashOuCripto.SetSelection(
+                        self._Criptografia_para_escolher.index(dados_separados[1]))
                     self.eventoComboBoxFormulaHashOuCripto(None)
                     self._txtChave.Clear()
                     self._txtChave.WriteText(dados_separados[2])
                     self._txtEntradaDados.Clear()
                     self._txtEntradaDados.WriteText(dados_separados[3])
             except KeyError:
-                self.error_dialog('Não há nenhum arquivo com esse nome que possua configurações para esse programa.')
+                self.error_dialog(_('Não há nenhum arquivo com esse nome que possua configurações para esse programa.'))
+
+    # def pesquisar(self, evt):
+    #     dialog = wx.Fi
 
 
-class Cifrador(wx.App):
-    def __init__(self):
-        super().__init__(False)
-        MyWindow(title="Cyfer")
-        self.MainLoop()
+def rebuild(my_frame: MyWindow):
+    tipo_alteracao = my_frame.comboBoxTipoAlteracao.GetSelection()
+    tipo_hash_ou_cripto = my_frame.comboBoxFormulaHashOuCripto.GetSelection()
+    tamanho_chave = my_frame.radio_btn_key_size.GetSelection()
+    chave = my_frame._txtChave.GetValue()
+    iv = my_frame._txtIV.GetValue()
+    entrada_dados = my_frame._txtEntradaDados.GetValue()
+    saida_dados = my_frame._txtSaidaDados.GetValue()
+
+    my_frame.Hide()
+    novo_frame = MyWindow()
+
+    novo_frame.comboBoxTipoAlteracao.SetSelection(tipo_alteracao)
+    novo_frame.comboBoxFormulaHashOuCripto.SetSelection(tipo_hash_ou_cripto)
+    novo_frame.radio_btn_key_size.SetSelection(tamanho_chave)
+    novo_frame._txtChave.SetValue(chave)
+    novo_frame._txtIV.SetValue(iv)
+    novo_frame._txtEntradaDados.SetValue(entrada_dados)
+    novo_frame._txtSaidaDados.SetValue(saida_dados)
+
+    my_frame.Destroy()
+    novo_frame.Show()
 
 
-Cifrador()
+if __name__ == '__main__':
+    app = BaseApp()
+    MyWindow()
+    app.MainLoop()
