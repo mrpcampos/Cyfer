@@ -1,7 +1,9 @@
 import wx
 import os
 import shelve
+import locale
 from app_base import BaseApp
+from datetime import datetime
 import cryptography.exceptions
 import cryptography.hazmat.primitives.padding as pad
 import cryptography.hazmat.primitives.hashes as hashes
@@ -40,8 +42,8 @@ class MyWindow(wx.Frame):
                                   _(" Salva as configurações atuais para facilitar a decriptografia."))
         abrir = self.menu.Append(wx.ID_OPEN, _("Abrir"),
                                  _("Carregar arquivo de configurações específico a partir do nome."))
-        # pesquisar = self.menu.Append(wx.ID_OPEN, _("Pesquisar"),
-        #                          _("Pesquisar arquivos disponíveis na pasta base."))
+        pesquisar = self.menu.Append(wx.ID_VIEW_LIST, _("Pesquisar"),
+                                     _("Pesquisar arquivos disponíveis na pasta base."))
 
         self.menuBar.Append(self.menu, _("&Menu"))
 
@@ -49,7 +51,7 @@ class MyWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.lingua, lingua)
         self.Bind(wx.EVT_MENU, self.salvar, salvar)
         self.Bind(wx.EVT_MENU, self.carregar, abrir)
-        # self.Bind(wx.EVT_MENU, self.pesquisar, pesquisar)
+        self.Bind(wx.EVT_MENU, self.pesquisar, pesquisar)
 
         self.SetMenuBar(self.menuBar)
         self.CreateStatusBar()
@@ -392,7 +394,7 @@ class MyWindow(wx.Frame):
                 dados_para_salvar += ":" + self._txtChave.GetValue()
                 dados_para_salvar += ":" + self._txtEntradaDados.GetValue()
 
-            dialogNome = wx.TextEntryDialog(self, _('Escolha um nome para o arquivo:'),
+            dialogNome = wx.TextEntryDialog(self, _('Escolha um nome para o conjunto de dados de criptografia:'),
                                             caption=_('Salvar Configurações de Criptografia'))
             dialogNome.ShowModal()
             dialogSenha = wx.TextEntryDialog(self,
@@ -403,6 +405,7 @@ class MyWindow(wx.Frame):
             dialogSenha.ShowModal()
             nome = dialogNome.GetValue()
             senha = dialogSenha.GetValue()
+            iteracoes = 1000000
             if senha is not '' or None:
                 salt = os.urandom(32)
                 senha = senha.encode()
@@ -413,8 +416,9 @@ class MyWindow(wx.Frame):
                 aesgcm = aead.AESGCM(chave)
                 dados_criptografados = aesgcm.encrypt(nounce, dados_para_salvar, None)
                 dados_para_salvar = salt + dados_criptografados + nounce
-                arquivo = shelve.open(nome)
-                arquivo['cript'] = dados_para_salvar
+                ts = datetime.now()
+                arquivo = shelve.open('cyfer')
+                arquivo[nome] = {"data": ts, 'iterações': iteracoes, 'dados': dados_para_salvar}
                 arquivo.close()
 
     def carregar(self, evt):
@@ -423,48 +427,79 @@ class MyWindow(wx.Frame):
         dialogNome.ShowModal()
         nome = dialogNome.GetValue()
         if nome is not '':
-            arq = shelve.open(nome)
-            try:
-                dados = arq['cript']
-                salt = dados[:32]
-                nounce = dados[-16:]
-                dados = dados[32:len(dados) - 16]
-                dialogSenha = wx.TextEntryDialog(self,
-                                                 _('Entre a senha para decriptografar essas configurações:'),
-                                                 caption=_('Carregar configurações de Criptografia'))
-                dialogSenha.ShowModal()
-                senha = dialogSenha.GetValue().encode()
-                chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=1000000,
-                                   backend=default_backend()).derive(senha)
-                dados_decriptografados = aead.AESGCM(chave).decrypt(nounce, dados, None)
-                dados_separados = dados_decriptografados.decode().split(':')
-                if dados_separados[0] == 'Criptografia':
-                    self.comboBoxTipoAlteracao.SetSelection(0)
-                    self.eventoComboBoxTipoAlteracao(None)
-                    self.comboBoxFormulaHashOuCripto.SetSelection(
-                        self._Criptografia_para_escolher.index(dados_separados[1]))
-                    self.eventoComboBoxFormulaHashOuCripto(None)
-                    self._txtChave.Clear()
-                    self._txtChave.WriteText(dados_separados[2])
-                    self._txtIV.Clear()
-                    self._txtIV.WriteText(dados_separados[3])
-                    self._txtEntradaDados.Clear()
-                    self._txtEntradaDados.WriteText(dados_separados[4])
-                elif dados_separados[0] == 'Hmac':
-                    self.comboBoxTipoAlteracao.SetSelection(2)
-                    self.eventoComboBoxTipoAlteracao(None)
-                    self.comboBoxFormulaHashOuCripto.SetSelection(
-                        self._Criptografia_para_escolher.index(dados_separados[1]))
-                    self.eventoComboBoxFormulaHashOuCripto(None)
-                    self._txtChave.Clear()
-                    self._txtChave.WriteText(dados_separados[2])
-                    self._txtEntradaDados.Clear()
-                    self._txtEntradaDados.WriteText(dados_separados[3])
-            except KeyError:
-                self.error_dialog(_('Não há nenhum arquivo com esse nome que possua configurações para esse programa.'))
+            self.tentar_abrir_arq_config(nome)
 
-    # def pesquisar(self, evt):
-    #     dialog = wx.Fi
+    def tentar_abrir_arq_config(self, nome):
+        try:
+            arq = shelve.open('cyfer')
+            dados = arq[nome]['dados']
+            arq.close()
+            salt = dados[:32]
+            nounce = dados[-16:]
+            dados = dados[32:len(dados) - 16]
+            dialogSenha = wx.TextEntryDialog(self,
+                                             _('Entre a senha para decriptografar essas configurações:'),
+                                             caption=_('Carregar configurações de Criptografia'))
+            dialogSenha.ShowModal()
+            senha = dialogSenha.GetValue().encode()
+            chave = PBKDF2HMAC(algorithm=hashes.SHA3_256, length=32, salt=salt, iterations=1000000,
+                               backend=default_backend()).derive(senha)
+            dados_decriptografados = aead.AESGCM(chave).decrypt(nounce, dados, None)
+            dados_separados = dados_decriptografados.decode().split(':')
+            if dados_separados[0] == 'Criptografia':
+                self.comboBoxTipoAlteracao.SetSelection(0)
+                self.eventoComboBoxTipoAlteracao(None)
+                self.comboBoxFormulaHashOuCripto.SetSelection(
+                    self._Criptografia_para_escolher.index(dados_separados[1]))
+                self.eventoComboBoxFormulaHashOuCripto(None)
+                self._txtChave.Clear()
+                self._txtChave.WriteText(dados_separados[2])
+                self._txtIV.Clear()
+                self._txtIV.WriteText(dados_separados[3])
+                self._txtEntradaDados.Clear()
+                self._txtEntradaDados.WriteText(dados_separados[4])
+            elif dados_separados[0] == 'Hmac':
+                self.comboBoxTipoAlteracao.SetSelection(2)
+                self.eventoComboBoxTipoAlteracao(None)
+                self.comboBoxFormulaHashOuCripto.SetSelection(
+                    self._Hmac_para_escolher.index(dados_separados[1]))
+                self.eventoComboBoxFormulaHashOuCripto(None)
+                self._txtChave.Clear()
+                self._txtChave.WriteText(dados_separados[2])
+                self._txtEntradaDados.Clear()
+                self._txtEntradaDados.WriteText(dados_separados[3])
+        except KeyError:
+            self.error_dialog(_('Não há nenhum arquivo com esse nome que possua configurações para esse programa.'))
+
+    def pesquisar(self, evt):
+        dialog = wx.SingleChoiceDialog(self, _('Escolha qual deseja abrir:'), _("Pesquisar Conjuntos"), [], style=wx.OK | wx.CANCEL)
+        s = dialog.GetSizer()
+
+        list_ctrl = wx.ListCtrl(dialog, size=(-1, -1), style=wx.LC_REPORT)
+        list_ctrl.AppendColumn(_('Nome'))
+        list_ctrl.AppendColumn(_('Data'))
+        list_ctrl.AppendColumn(_('Iterações'))
+
+        nomes = []
+        with shelve.open('cyfer') as arq:
+            for nome, info in arq.items():
+                nomes.append(nome)
+                list_ctrl.Append([nome, wx.DateTime(info["data"]).Format(), locale.format_string('%d', info["iterações"], grouping=True)])
+            # todo descobrir como verificar isso, possívelmente só remover
+            # if not list_ctrl.IsEmpty():
+            #     list_ctrl.Select(0)
+
+        # todo aumentar a largura ou mandar o listctrl distribuir melhor o espeço horizontal
+        old = dialog.GetChildren()[1]
+        s.Replace(old, list_ctrl)
+        old.Hide()
+        list_ctrl.Fit()
+        dialog.Fit()
+        if dialog.ShowModal() == wx.ID_OK:
+            selected = list_ctrl.GetFirstSelected()
+            if selected is not -1:
+                nome = nomes[selected]
+                self.tentar_abrir_arq_config(nome)
 
 
 def rebuild(my_frame: MyWindow):
